@@ -24,3 +24,402 @@
                 white-space: nowrap
                 overflow: visible
                 text-overflow: ellipsis
+
+// ---------------------------------------------------------------------------
+// Download-Karten: Die Tabellen "Downloading" und "Completed" werden als Kartenliste
+// dargestellt. Das HTML bleibt eine Tabelle (Tests, Barrierefreiheit), nur die Darstellung ändert sich.
+// Farben kommen aus den Bootstrap-Variablen und passen sich dem Dark-/Light-Modus an.
+// ---------------------------------------------------------------------------
+table.dl-cards
+    display: block
+    margin: 0.75rem 0 1rem
+    background: transparent
+
+    thead, tbody
+        display: block
+
+    // Kopfzeile: nur die "Alle auswählen"-Checkbox bleibt sichtbar
+    thead tr
+        display: flex
+        align-items: center
+        padding: 0 1rem 0.25rem
+
+    thead th
+        display: none
+        padding: 0
+        border: 0 !important
+
+    thead th:first-child
+        display: block
+
+    tbody tr
+        display: flex
+        flex-wrap: wrap
+        align-items: center
+        column-gap: 0.75rem
+        row-gap: 0.35rem
+        margin-bottom: 0.6rem
+        padding: 0.75rem 1rem
+        background: var(--bs-tertiary-bg)
+        border: 1px solid var(--bs-border-color)
+        border-left: 4px solid var(--bs-border-color)
+        border-radius: 0.75rem
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08)
+        transition: background-color 0.15s ease, box-shadow 0.15s ease
+
+        &:hover
+            background: var(--bs-secondary-bg)
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14)
+
+        &[data-status="downloading"], &[data-status="preparing"], &[data-status="postprocessing"]
+            border-left-color: var(--bs-primary)
+
+        &[data-status="finished"]
+            border-left-color: var(--bs-success)
+
+        &[data-status="error"]
+            border-left-color: var(--bs-danger)
+
+        &[data-status="pending"], &[data-status="queued"], &[data-status="scheduled"]
+            border-left-color: var(--bs-warning)
+
+    // Zeilenumbruch nach den Aktionen: danach beginnt die Detailzeile
+    tbody tr::after
+        content: ""
+        order: 4
+        flex-basis: 100%
+        height: 0
+
+    td
+        padding: 0
+        border: 0
+        background: transparent
+        box-shadow: none
+        order: 5
+        font-size: 0.8rem
+        color: var(--bs-secondary-color)
+
+    td:empty
+        display: none
+
+    // Detailwerte mit kleiner Beschriftung davor
+    td[data-label]::before
+        content: attr(data-label)
+        margin-right: 0.35rem
+        font-size: 0.65rem
+        font-weight: 600
+        letter-spacing: 0.06em
+        text-transform: uppercase
+        opacity: 0.75
+
+    // Checkbox | Titel (+ Balken) | Aktionen
+    td:first-child
+        order: 0
+
+    td:nth-child(2)
+        order: 1
+        flex: 1 1 0
+        min-width: 0
+        font-size: 1rem
+        font-weight: 500
+        color: var(--bs-body-color)
+        overflow-wrap: anywhere
+
+    td:last-child
+        order: 3
+        font-size: 1rem
+
+    td[data-label]
+        margin-right: 0.5rem
+
+    .btn-link
+        padding: 0.25rem 0.5rem
+        opacity: 0.75
+
+        &:hover
+            opacity: 1
+
+// Downloading: Titel über dem Balken, Balken über die volle Breite
+table.dl-queue
+    td:nth-child(2) > div
+        flex-direction: column !important
+        align-items: stretch !important
+        row-gap: 0.4rem !important
+
+    .download-progressbar
+        width: 100%
+        margin-left: 0
+
+    .progress
+        height: 1.5rem !important
+        border-radius: 999px
+        font-size: 0.8rem
+        font-weight: 600
+        background: var(--bs-border-color)
+
+// ---------------------------------------------------------------------------
+// Farbschema: ruhiger Navy-Hintergrund im Dark-Modus, Indigo als Akzent, Cyan für Tempo.
+// Überschreibt nur Bootstrap-Variablen; beide Modi (hell/dunkel) bleiben umschaltbar.
+// ---------------------------------------------------------------------------
+html[data-bs-theme="dark"]
+    --bs-body-bg: #0b0d14
+    --bs-body-bg-rgb: 11, 13, 20
+    --bs-body-color: #d8dbe8
+    --bs-secondary-color: rgba(216, 219, 232, 0.6)
+    --bs-tertiary-bg: #12141f
+    --bs-tertiary-bg-rgb: 18, 20, 31
+    --bs-secondary-bg: #171a28
+    --bs-secondary-bg-rgb: 23, 26, 40
+    --bs-border-color: rgba(255, 255, 255, 0.08)
+    --bs-primary: #7c6cf5
+    --bs-primary-rgb: 124, 108, 245
+    --bs-link-color: #a79dff
+    --bs-link-color-rgb: 167, 157, 255
+    --bs-link-hover-color: #c4bdff
+    --bs-link-hover-color-rgb: 196, 189, 255
+    --bs-info: #22d3ee
+    --bs-info-rgb: 34, 211, 238
+    --bs-success: #34d399
+    --bs-success-rgb: 52, 211, 153
+    --bs-warning: #fbbf24
+    --bs-warning-rgb: 251, 191, 36
+    --bs-danger: #f87171
+    --bs-danger-rgb: 248, 113, 113
+
+html[data-bs-theme="light"]
+    --bs-body-bg: #f4f5fb
+    --bs-body-bg-rgb: 244, 245, 251
+    --bs-tertiary-bg: #ffffff
+    --bs-tertiary-bg-rgb: 255, 255, 255
+    --bs-secondary-bg: #eceef7
+    --bs-secondary-bg-rgb: 236, 238, 247
+    --bs-border-color: #e1e4f0
+    --bs-primary: #5b5bd6
+    --bs-primary-rgb: 91, 91, 214
+    --bs-link-color: #4a4ac4
+    --bs-link-color-rgb: 74, 74, 196
+    --bs-link-hover-color: #3838a8
+    --bs-link-hover-color-rgb: 56, 56, 168
+
+// Bootstrap-Buttons lesen die Akzentfarbe nicht aus --bs-primary
+.btn-primary
+    --bs-btn-bg: var(--bs-primary)
+    --bs-btn-border-color: var(--bs-primary)
+    --bs-btn-hover-bg: color-mix(in srgb, var(--bs-primary) 85%, #fff)
+    --bs-btn-hover-border-color: color-mix(in srgb, var(--bs-primary) 85%, #fff)
+    --bs-btn-active-bg: color-mix(in srgb, var(--bs-primary) 80%, #000)
+    --bs-btn-active-border-color: color-mix(in srgb, var(--bs-primary) 80%, #000)
+    --bs-btn-disabled-bg: var(--bs-primary)
+    --bs-btn-disabled-border-color: var(--bs-primary)
+
+html[data-bs-theme="dark"] .navbar
+    background-color: #0f1119 !important
+    border-bottom: 1px solid var(--bs-border-color)
+
+.form-control, .form-select
+    border-radius: 0.6rem
+
+.btn
+    border-radius: 0.6rem
+
+// Fortschrittsbalken: Indigo → Cyan statt Standard-Grün
+table.dl-queue .progress-bar
+    background: linear-gradient(90deg, #6366f1, #22d3ee)
+
+// Status-Pille in jeder Karte (Text kommt aus data-status)
+table.dl-cards tbody tr
+    --pill: 148, 150, 170
+
+    &[data-status="downloading"], &[data-status="preparing"], &[data-status="postprocessing"]
+        --pill: 124, 108, 245
+
+    &[data-status="finished"]
+        --pill: 52, 211, 153
+
+    &[data-status="error"]
+        --pill: 248, 113, 113
+
+    &[data-status="pending"], &[data-status="queued"], &[data-status="scheduled"]
+        --pill: 251, 191, 36
+
+table.dl-cards tbody tr::before
+    order: 2
+    padding: 0.2rem 0.65rem
+    border-radius: 999px
+    font-size: 0.72rem
+    font-weight: 600
+    white-space: nowrap
+    background: rgba(var(--pill), 0.16)
+    border: 1px solid rgba(var(--pill), 0.35)
+    color: color-mix(in srgb, rgb(var(--pill)) 65%, #000)
+
+html[data-bs-theme="dark"] table.dl-cards tbody tr::before
+    color: color-mix(in srgb, rgb(var(--pill)) 80%, #fff)
+
+table.dl-cards tbody tr[data-status="downloading"]::before
+    content: "Downloading"
+
+table.dl-cards tbody tr[data-status="preparing"]::before
+    content: "Preparing"
+
+table.dl-cards tbody tr[data-status="postprocessing"]::before
+    content: "Post-processing"
+
+table.dl-cards tbody tr[data-status="queued"]::before
+    content: "Queued"
+
+table.dl-cards tbody tr[data-status="pending"]::before
+    content: "Waiting"
+
+table.dl-cards tbody tr[data-status="scheduled"]::before
+    content: "Scheduled"
+
+table.dl-cards tbody tr[data-status="finished"]::before
+    content: "Done"
+
+table.dl-cards tbody tr[data-status="error"]::before
+    content: "Error"
+
+// Kapitel-Zeilen (Unterdateien) haben keinen Status → keine Pille
+table.dl-cards tbody tr:not([data-status])::before
+    display: none
+
+// ---------------------------------------------------------------------------
+// Handy: mehr Luft, größere Tippflächen
+// ---------------------------------------------------------------------------
+@media (pointer: coarse)
+    table.dl-cards .btn-link
+        min-width: 44px
+        min-height: 44px
+        display: inline-flex
+        align-items: center
+        justify-content: center
+
+    .btn:not(.btn-sm)
+        min-height: 44px
+
+@media (max-width: 575.98px)
+    .add-url-box
+        margin: 1.5rem auto !important
+
+    .metube-section-header
+        font-size: 1.4rem !important
+        margin-top: 2rem !important
+
+    table.dl-cards
+        margin: 0.5rem 0 0.75rem
+
+        tbody tr
+            padding: 0.85rem 0.85rem
+            column-gap: 0.5rem
+            border-radius: 0.9rem
+
+        // Titel nimmt die ganze Zeile ein, Pille und Aktionen rücken darunter
+        td:nth-child(2)
+            flex-basis: calc(100% - 3rem)
+
+        td[data-label]
+            font-size: 0.82rem
+            margin-right: 0.75rem
+
+    .download-metrics
+        margin-left: 0.5rem !important
+        gap: 8px !important
+
+// ---------------------------------------------------------------------------
+// Kennzahlen-Kacheln oben (Active / Queued / Completed / Speed)
+// ---------------------------------------------------------------------------
+.stat-tiles
+    --tile: 124, 108, 245
+    max-width: 960px
+    margin: 2rem auto 0
+    display: grid
+    grid-template-columns: repeat(4, 1fr)
+    gap: 0.9rem
+
+.stat-tile
+    position: relative
+    overflow: hidden
+    padding: 0.9rem 1rem 0.8rem
+    background: var(--bs-tertiary-bg)
+    border: 1px solid var(--bs-border-color)
+    border-radius: 1rem
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08)
+
+    // feine Farblinie am unteren Rand
+    &::after
+        content: ""
+        position: absolute
+        left: 12%
+        right: 12%
+        bottom: 0
+        height: 2px
+        border-radius: 2px
+        background: linear-gradient(90deg, transparent, rgba(var(--tile), 0.8), transparent)
+
+    &[data-kind="active"]
+        --tile: 124, 108, 245
+
+    &[data-kind="queued"]
+        --tile: 251, 191, 36
+
+    &[data-kind="completed"]
+        --tile: 52, 211, 153
+
+    &[data-kind="speed"]
+        --tile: 34, 211, 238
+
+.stat-head
+    display: flex
+    align-items: center
+    justify-content: space-between
+
+.stat-label
+    font-size: 0.78rem
+    color: var(--bs-secondary-color)
+
+.stat-icon
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    width: 2rem
+    height: 2rem
+    border-radius: 0.6rem
+    font-size: 0.85rem
+    color: rgb(var(--tile))
+    background: rgba(var(--tile), 0.14)
+    border: 1px solid rgba(var(--tile), 0.3)
+
+.stat-value
+    margin-top: 0.35rem
+    font-size: 1.9rem
+    font-weight: 700
+    line-height: 1.15
+    color: rgb(var(--tile))
+    white-space: nowrap
+    overflow: hidden
+    text-overflow: ellipsis
+
+.stat-sub
+    font-size: 0.72rem
+    color: var(--bs-secondary-color)
+    min-height: 1.1em
+
+html[data-bs-theme="light"] .stat-value
+    color: color-mix(in srgb, rgb(var(--tile)) 70%, #000)
+
+// Die Kennzahlen stehen jetzt in den Kacheln: Kopfleiste entlasten, Abstand zum Eingabefeld verkleinern
+.download-metrics
+    display: none !important
+
+.stat-tiles + form .add-url-box
+    margin-top: 1.25rem !important
+
+@media (max-width: 767.98px)
+    .stat-tiles
+        grid-template-columns: repeat(2, 1fr)
+        gap: 0.6rem
+        margin-top: 1rem
+
+    .stat-value
+        font-size: 1.6rem
