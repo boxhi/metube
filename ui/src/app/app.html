@@ -86,41 +86,48 @@
 <main role="main" class="container container-xl">
   <section class="stat-tiles" aria-label="Download overview">
     <div class="stat-tile" data-kind="active">
-      <div class="stat-head"><span class="stat-label">Active</span><span class="stat-icon"><fa-icon [icon]="faDownload" /></span></div>
-      <div class="stat-value">{{ activeDownloads }}</div>
-      <div class="stat-sub">downloading now</div>
+      <span class="stat-icon"><fa-icon [icon]="faDownload" /></span>
+      <div class="stat-body">
+        <span class="stat-label">Active</span>
+        <span class="stat-value">{{ activeDownloads }}</span>
+      </div>
     </div>
     <div class="stat-tile" data-kind="queued">
-      <div class="stat-head"><span class="stat-label">Queued</span><span class="stat-icon"><fa-icon [icon]="faClock" /></span></div>
-      <div class="stat-value">{{ queuedDownloads }}</div>
-      <div class="stat-sub">waiting to start</div>
+      <span class="stat-icon"><fa-icon [icon]="faClock" /></span>
+      <div class="stat-body">
+        <span class="stat-label">Queued</span>
+        <span class="stat-value">{{ queuedDownloads }}</span>
+      </div>
     </div>
     <div class="stat-tile" data-kind="completed">
-      <div class="stat-head"><span class="stat-label">Completed</span><span class="stat-icon"><fa-icon [icon]="faCheck" /></span></div>
-      <div class="stat-value">{{ completedDownloads }}</div>
-      <div class="stat-sub">
+      <span class="stat-icon"><fa-icon [icon]="faCheck" /></span>
+      <div class="stat-body">
+        <span class="stat-label">Completed</span>
+        <span class="stat-value">{{ completedDownloads }}</span>
         @if (failedDownloads > 0) {
-          <span class="text-danger">{{ failedDownloads }} failed</span>
-        } @else {
-          finished
+          <span class="stat-sub text-danger">{{ failedDownloads }} failed</span>
         }
       </div>
     </div>
     <div class="stat-tile" data-kind="size">
-      <div class="stat-head"><span class="stat-label">Downloaded</span><span class="stat-icon"><fa-icon [icon]="faHardDrive" /></span></div>
-      <div class="stat-value">
-        @if (downloadedBytes > 0) {
-          {{ downloadedBytes | fileSize }}
-        } @else {
-          –
-        }
+      <span class="stat-icon"><fa-icon [icon]="faHardDrive" /></span>
+      <div class="stat-body">
+        <span class="stat-label">Downloaded</span>
+        <span class="stat-value">
+          @if (downloadedBytes > 0) {
+            {{ downloadedBytes | fileSize }}
+          } @else {
+            –
+          }
+        </span>
       </div>
-      <div class="stat-sub">total size</div>
     </div>
     <div class="stat-tile" data-kind="speed">
-      <div class="stat-head"><span class="stat-label">Speed</span><span class="stat-icon"><fa-icon [icon]="faTachometerAlt" /></span></div>
-      <div class="stat-value">{{ (totalSpeed | speed) || '–' }}</div>
-      <div class="stat-sub">combined</div>
+      <span class="stat-icon"><fa-icon [icon]="faTachometerAlt" /></span>
+      <div class="stat-body">
+        <span class="stat-label">Speed</span>
+        <span class="stat-value">{{ (totalSpeed | speed) || '–' }}</span>
+      </div>
     </div>
   </section>
   <form #f="ngForm">
@@ -754,6 +761,15 @@
                         <span>Post-processing</span>
                       }
                     </ngb-progressbar>
+                    <div class="dl-detail">
+                      @if (download.value.speed | speed; as sp) {
+                        <span>{{ sp }}</span>
+                      }
+                      @if (download.value.eta | eta; as et) {
+                        <span>{{ et }} left</span>
+                      }
+                      <span>{{ formatLabel(download.value) }}</span>
+                    </div>
                   }
                 </div>
               </td>
@@ -888,18 +904,23 @@
                 }
               </td>
               <td>
-                <div class="d-flex justify-content-end">
-                  @if (entry[1].status === 'error') {
-                    <button type="button" class="btn btn-link" [attr.aria-label]="'Retry download for ' + entry[1].title" (click)="retryDownload(entry[0], entry[1])"><fa-icon [icon]="faRedoAlt" /></button>
-                  }
-                  @if (entry[1].filename) {
-                    <a href="{{buildDownloadLink(entry[1])}}" download class="btn btn-link" [attr.aria-label]="'Download result file for ' + entry[1].title"><fa-icon [icon]="faDownload" /></a>
-                  }
-                  @if (entry[1].filename && canShareDownloads()) {
-                    <button type="button" class="btn btn-link" [attr.aria-label]="'Share result file for ' + entry[1].title" (click)="shareDownload(entry[1])"><fa-icon [icon]="faShareNodes" /></button>
-                  }
-                  <a href="{{entry[1].url}}" target="_blank" class="btn btn-link" [attr.aria-label]="'Open source URL for ' + entry[1].title"><fa-icon [icon]="faExternalLinkAlt" /></a>
-                  <button type="button" class="btn btn-link" [attr.aria-label]="'Delete completed item ' + entry[1].title" (click)="delDownload('done', entry[0])"><fa-icon [icon]="faTrashAlt" /></button>
+                <div class="d-flex justify-content-end" ngbDropdown placement="bottom-end" container="body">
+                  <button type="button" class="btn btn-link dl-more" ngbDropdownToggle [attr.aria-label]="'Actions for ' + entry[1].title">
+                    <fa-icon [icon]="faEllipsisVertical" />
+                  </button>
+                  <div ngbDropdownMenu>
+                    @if (entry[1].status === 'error') {
+                      <button type="button" ngbDropdownItem (click)="retryDownload(entry[0], entry[1])"><fa-icon [icon]="faRedoAlt" class="me-2" />Retry</button>
+                    }
+                    @if (entry[1].filename) {
+                      <a href="{{buildDownloadLink(entry[1])}}" download ngbDropdownItem><fa-icon [icon]="faDownload" class="me-2" />Download file</a>
+                    }
+                    @if (entry[1].filename && canShareDownloads()) {
+                      <button type="button" ngbDropdownItem (click)="shareDownload(entry[1])"><fa-icon [icon]="faShareNodes" class="me-2" />Share</button>
+                    }
+                    <a href="{{entry[1].url}}" target="_blank" ngbDropdownItem><fa-icon [icon]="faExternalLinkAlt" class="me-2" />Open source</a>
+                    <button type="button" ngbDropdownItem class="text-danger" (click)="delDownload('done', entry[0])"><fa-icon [icon]="faTrashAlt" class="me-2" />Delete</button>
+                  </div>
                 </div>
               </td>
             </tr>
