@@ -7,7 +7,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { NgbModal, NgbModule, NgbTypeahead } from '@ng-bootstrap/ng-bootstrap';
 import { NgSelectModule } from '@ng-select/ng-select';
-import { faTrashAlt, faCheckCircle, faTimesCircle, faRedoAlt, faSun, faMoon, faCheck, faCircleHalfStroke, faDownload, faExternalLinkAlt, faFileImport, faFileExport, faCopy, faClock, faTachometerAlt, faSortAmountDown, faSortAmountUp, faChevronRight, faChevronDown, faUpload, faPause, faPlay, faShareNodes } from '@fortawesome/free-solid-svg-icons';
+import { faTrashAlt, faCheckCircle, faTimesCircle, faRedoAlt, faSun, faMoon, faCheck, faCircleHalfStroke, faDownload, faExternalLinkAlt, faFileImport, faFileExport, faCopy, faClock, faTachometerAlt, faHardDrive, faStar, faSortAmountDown, faSortAmountUp, faChevronRight, faChevronDown, faUpload, faPause, faPlay, faShareNodes } from '@fortawesome/free-solid-svg-icons';
 import { faGithub } from '@fortawesome/free-brands-svg-icons';
 import { CookieService } from 'ngx-cookie-service';
 import { AddDownloadPayload, DownloadsService } from './services/downloads.service';
@@ -177,6 +177,7 @@ export class App implements AfterViewInit, OnInit, OnDestroy {
   completedDownloads = 0;
   failedDownloads = 0;
   totalSpeed = 0;
+  downloadedBytes = 0;
   hasCompletedDone = false;
   hasFailedDone = false;
 
@@ -203,6 +204,8 @@ export class App implements AfterViewInit, OnInit, OnDestroy {
   faGithub = faGithub;
   faClock = faClock;
   faTachometerAlt = faTachometerAlt;
+  faHardDrive = faHardDrive;
+  faStar = faStar;
   faSortAmountDown = faSortAmountDown;
   faSortAmountUp = faSortAmountUp;
   faChevronRight = faChevronRight;
@@ -1861,6 +1864,7 @@ export class App implements AfterViewInit, OnInit, OnDestroy {
     let completed = 0;
     let failed = 0;
     let speed = 0;
+    let bytes = 0;
 
     this.downloads.queue.forEach((download) => {
       if (download.status === 'downloading') {
@@ -1876,6 +1880,7 @@ export class App implements AfterViewInit, OnInit, OnDestroy {
     this.downloads.done.forEach((download) => {
       if (download.status === 'finished') {
         completed++;
+        bytes += download.size || 0;
       } else if (download.status === 'error') {
         failed++;
       }
@@ -1886,5 +1891,6 @@ export class App implements AfterViewInit, OnInit, OnDestroy {
     this.completedDownloads = completed;
     this.failedDownloads = failed;
     this.totalSpeed = speed;
+    this.downloadedBytes = bytes;
   }
 }
