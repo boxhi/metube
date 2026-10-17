@@ -35,6 +35,7 @@ import {
   ToastContainerComponent,
   PlaylistBrowserComponent,
 } from './components/';
+import { DESIGN_VERSION } from './design-version';
 
 @Component({
   selector: 'app-root',
@@ -140,6 +141,8 @@ export class App implements AfterViewInit, OnInit, OnDestroy {
   ytDlpOptionsUpdateTime: string | null = null;
   ytDlpVersion: string | null = null;
   metubeVersion: string | null = null;
+  // Version des Designs; der GitHub-Build (design-preview) überschreibt design-version.ts
+  readonly designVersion = DESIGN_VERSION;
   isAdvancedOpen = false;
   sortAscending = false;
   downloadingCollapsed = false;
