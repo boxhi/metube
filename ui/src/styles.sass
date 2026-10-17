@@ -523,3 +523,43 @@ table.dl-done tbody tr[data-status="finished"]::before
 
     &::after
         display: none !important
+
+// ---------------------------------------------------------------------------
+// Fußleiste: folgt dem Modus (hell/dunkel) statt fest dunkelgrau
+// ---------------------------------------------------------------------------
+.footer
+    background: var(--bs-tertiary-bg) !important
+    border-top: 1px solid var(--bs-border-color)
+    box-shadow: none !important
+
+    .footer-content
+        color: var(--bs-secondary-color) !important
+
+        .version-label
+            opacity: 1 !important
+            letter-spacing: 0.06em
+
+        .version-value
+            padding: 0.15rem 0.55rem !important
+            border-radius: 0.5rem !important
+            background: var(--bs-secondary-bg) !important
+            border: 1px solid var(--bs-border-color)
+            color: var(--bs-body-color) !important
+
+        .version-separator
+            background: var(--bs-border-color) !important
+
+        .github-link
+            color: var(--bs-body-color) !important
+
+            &:hover
+                background: var(--bs-secondary-bg) !important
+
+// Versionsfelder in der Fußleiste sind Links zu GitHub
+.footer .footer-content a.version-value
+    text-decoration: none
+    transition: border-color 0.15s ease, color 0.15s ease
+
+    &:hover, &:focus-visible
+        border-color: var(--bs-primary)
+        color: var(--bs-primary) !important

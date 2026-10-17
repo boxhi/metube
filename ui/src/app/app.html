@@ -1141,18 +1141,23 @@
   }
 </main><!-- /.container -->
 
-<footer class="footer navbar-dark bg-dark py-3 mt-5">
+<footer class="footer py-3 mt-5">
   <div class="container text-center">
     @if (ytDlpVersion && metubeVersion) {
       <div class="footer-content">
         <div class="version-item">
           <span class="version-label">yt-dlp</span>
-          <span class="version-value">{{ytDlpVersion}}</span>
+          <a class="version-value" href="https://github.com/yt-dlp/yt-dlp/releases/tag/{{ytDlpVersion}}" target="_blank" rel="noopener noreferrer" title="yt-dlp {{ytDlpVersion}} auf GitHub">{{ytDlpVersion}}</a>
         </div>
         <div class="version-separator"></div>
         <div class="version-item">
           <span class="version-label">MeTube</span>
-          <span class="version-value">{{metubeVersion}}</span>
+          <a class="version-value" href="https://github.com/alexta69/metube/releases" target="_blank" rel="noopener noreferrer" title="MeTube-Versionen auf GitHub">{{metubeVersion}}</a>
+        </div>
+        <div class="version-separator"></div>
+        <div class="version-item">
+          <span class="version-label">Design</span>
+          <a class="version-value" href="https://github.com/boxhi/metube/tree/design" target="_blank" rel="noopener noreferrer" title="Design auf GitHub">{{designVersion}}</a>
         </div>
         <div class="version-separator"></div>
         @if (ytDlpOptionsUpdateTime) {
