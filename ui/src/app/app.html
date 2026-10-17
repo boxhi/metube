@@ -106,6 +106,17 @@
         }
       </div>
     </div>
+    <div class="stat-tile" data-kind="size">
+      <div class="stat-head"><span class="stat-label">Downloaded</span><span class="stat-icon"><fa-icon [icon]="faHardDrive" /></span></div>
+      <div class="stat-value">
+        @if (downloadedBytes > 0) {
+          {{ downloadedBytes | fileSize }}
+        } @else {
+          –
+        }
+      </div>
+      <div class="stat-sub">total size</div>
+    </div>
     <div class="stat-tile" data-kind="speed">
       <div class="stat-head"><span class="stat-label">Speed</span><span class="stat-icon"><fa-icon [icon]="faTachometerAlt" /></span></div>
       <div class="stat-value">{{ (totalSpeed | speed) || '–' }}</div>
@@ -138,7 +149,7 @@
             } @else if (subscribeInProgress) {
               <div class="btn-group download-split">
                 <button class="btn btn-primary btn-lg px-4" type="button" disabled>
-                  Download
+                  <fa-icon [icon]="faDownload" class="me-2" />Download
                 </button>
                 <button class="btn btn-primary btn-lg dropdown-toggle dropdown-toggle-split" type="button" disabled>
                   <span class="visually-hidden">More download actions</span>
@@ -154,7 +165,7 @@
                 <button class="btn btn-primary btn-lg px-4" type="submit"
                   (click)="addDownload()"
                   [disabled]="downloads.loading">
-                  Download
+                  <fa-icon [icon]="faDownload" class="me-2" />Download
                 </button>
                 <button class="btn btn-primary btn-lg dropdown-toggle dropdown-toggle-split" type="button"
                   ngbDropdownToggle
@@ -172,7 +183,7 @@
               <button class="btn btn-outline-secondary btn-lg px-3" type="button"
                 (click)="addSubscription()"
                 [disabled]="downloads.loading">
-                Subscribe
+                <fa-icon [icon]="faStar" class="me-2" />Subscribe
               </button>
             }
           </ng-template>
@@ -338,10 +349,10 @@
             (click)="toggleAdvanced()"
             [attr.aria-expanded]="isAdvancedOpen"
             aria-controls="advancedOptions">
-            Advanced Options
             <fa-icon
               [icon]="isAdvancedOpen ? faChevronDown : faChevronRight"
-              class="ms-1" />
+              class="me-2" />
+            Advanced options
           </button>
         </div>
       </div>

@@ -158,18 +158,18 @@ table.dl-queue
         background: var(--bs-border-color)
 
 // ---------------------------------------------------------------------------
-// Farbschema: ruhiger Navy-Hintergrund im Dark-Modus, Indigo als Akzent, Cyan für Tempo.
+// Farbschema: OLED-Schwarz im Dark-Modus, Indigo als Akzent, Cyan für Tempo.
 // Überschreibt nur Bootstrap-Variablen; beide Modi (hell/dunkel) bleiben umschaltbar.
 // ---------------------------------------------------------------------------
 html[data-bs-theme="dark"]
-    --bs-body-bg: #0b0d14
-    --bs-body-bg-rgb: 11, 13, 20
+    --bs-body-bg: #000000
+    --bs-body-bg-rgb: 0, 0, 0
     --bs-body-color: #d8dbe8
     --bs-secondary-color: rgba(216, 219, 232, 0.6)
-    --bs-tertiary-bg: #12141f
-    --bs-tertiary-bg-rgb: 18, 20, 31
-    --bs-secondary-bg: #171a28
-    --bs-secondary-bg-rgb: 23, 26, 40
+    --bs-tertiary-bg: #0b0b10
+    --bs-tertiary-bg-rgb: 11, 11, 16
+    --bs-secondary-bg: #15151c
+    --bs-secondary-bg-rgb: 21, 21, 28
     --bs-border-color: rgba(255, 255, 255, 0.08)
     --bs-primary: #7c6cf5
     --bs-primary-rgb: 124, 108, 245
@@ -213,7 +213,7 @@ html[data-bs-theme="light"]
     --bs-btn-disabled-border-color: var(--bs-primary)
 
 html[data-bs-theme="dark"] .navbar
-    background-color: #0f1119 !important
+    background-color: #000000 !important
     border-bottom: 1px solid var(--bs-border-color)
 
 .form-control, .form-select
@@ -331,10 +331,9 @@ table.dl-cards tbody tr:not([data-status])::before
 // ---------------------------------------------------------------------------
 .stat-tiles
     --tile: 124, 108, 245
-    max-width: 960px
-    margin: 2rem auto 0
+    margin: 2rem 0 0
     display: grid
-    grid-template-columns: repeat(4, 1fr)
+    grid-template-columns: repeat(5, 1fr)
     gap: 0.9rem
 
 .stat-tile
@@ -365,6 +364,9 @@ table.dl-cards tbody tr:not([data-status])::before
 
     &[data-kind="completed"]
         --tile: 52, 211, 153
+
+    &[data-kind="size"]
+        --tile: 192, 132, 252
 
     &[data-kind="speed"]
         --tile: 34, 211, 238
@@ -421,5 +423,72 @@ html[data-bs-theme="light"] .stat-value
         gap: 0.6rem
         margin-top: 1rem
 
+    // fünfte Kachel über die volle Breite
+    .stat-tile:last-child
+        grid-column: 1 / -1
+
     .stat-value
         font-size: 1.6rem
+
+// ---------------------------------------------------------------------------
+// Eingabebereich als Karte: großes Feld, "Download" (Indigo) und "Subscribe" (Umriss) nebeneinander
+// ---------------------------------------------------------------------------
+.add-url-box
+    max-width: none !important
+    padding: 1rem 1.25rem 0.25rem
+    background: var(--bs-tertiary-bg)
+    border: 1px solid var(--bs-border-color)
+    border-radius: 1rem
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08)
+
+    // Eingabefeld und Knöpfe mit Abstand statt verschmolzen
+    .input-group.input-group-lg
+        gap: 0.75rem
+        box-shadow: none !important
+
+        > .form-control
+            border-radius: 0.7rem !important
+            background: var(--bs-body-bg)
+            border-color: var(--bs-border-color)
+            padding-left: 1.1rem
+
+            &:focus
+                border-color: var(--bs-primary)
+                box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25)
+
+        > .btn, > .btn-group
+            margin-left: 0 !important
+
+        > .btn
+            border-radius: 0.7rem !important
+
+    .btn-group.download-split
+        > .btn:first-child
+            border-radius: 0.7rem 0 0 0.7rem !important
+
+        > .dropdown-toggle-split
+            border-radius: 0 0.7rem 0.7rem 0 !important
+
+    .btn-primary
+        font-weight: 600
+
+    // Subscribe: heller Umriss
+    .btn-outline-secondary
+        --bs-btn-color: var(--bs-body-color)
+        --bs-btn-border-color: var(--bs-border-color)
+        --bs-btn-hover-bg: var(--bs-secondary-bg)
+        --bs-btn-hover-color: var(--bs-body-color)
+        --bs-btn-hover-border-color: var(--bs-primary)
+        font-weight: 600
+
+    // "Advanced options": leise Zeile unter dem Feld
+    .btn-link
+        color: var(--bs-secondary-color)
+        font-size: 0.9rem
+
+        &:hover
+            color: var(--bs-body-color)
+
+@media (max-width: 575.98px)
+    .add-url-box
+        padding: 0.85rem 0.85rem 0.15rem
