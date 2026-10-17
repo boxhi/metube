@@ -84,6 +84,34 @@
 </nav>
 
 <main role="main" class="container container-xl">
+  <section class="stat-tiles" aria-label="Download overview">
+    <div class="stat-tile" data-kind="active">
+      <div class="stat-head"><span class="stat-label">Active</span><span class="stat-icon"><fa-icon [icon]="faDownload" /></span></div>
+      <div class="stat-value">{{ activeDownloads }}</div>
+      <div class="stat-sub">downloading now</div>
+    </div>
+    <div class="stat-tile" data-kind="queued">
+      <div class="stat-head"><span class="stat-label">Queued</span><span class="stat-icon"><fa-icon [icon]="faClock" /></span></div>
+      <div class="stat-value">{{ queuedDownloads }}</div>
+      <div class="stat-sub">waiting to start</div>
+    </div>
+    <div class="stat-tile" data-kind="completed">
+      <div class="stat-head"><span class="stat-label">Completed</span><span class="stat-icon"><fa-icon [icon]="faCheck" /></span></div>
+      <div class="stat-value">{{ completedDownloads }}</div>
+      <div class="stat-sub">
+        @if (failedDownloads > 0) {
+          <span class="text-danger">{{ failedDownloads }} failed</span>
+        } @else {
+          finished
+        }
+      </div>
+    </div>
+    <div class="stat-tile" data-kind="speed">
+      <div class="stat-head"><span class="stat-label">Speed</span><span class="stat-icon"><fa-icon [icon]="faTachometerAlt" /></span></div>
+      <div class="stat-value">{{ (totalSpeed | speed) || '–' }}</div>
+      <div class="stat-sub">combined</div>
+    </div>
+  </section>
   <form #f="ngForm">
     <div class="container add-url-box">
       <!-- Main URL Input with Download Button -->
@@ -670,7 +698,7 @@
       <button type="button" class="btn btn-link text-decoration-none px-0 me-4" disabled #queueDownloadSelected (click)="startSelectedDownloads('queue')"><fa-icon [icon]="faDownload" />&nbsp; Download selected</button>
     </div>
     <div class="overflow-auto">
-      <table class="table">
+      <table class="table dl-cards dl-queue">
         <thead>
           <tr>
             <th scope="col" style="width: 1rem;">
@@ -685,7 +713,7 @@
         </thead>
         <tbody>
           @for (download of downloads.queue | keyvalue: asIsOrder; track download.key) {
-            <tr [class.disabled]='download.value.deleting'>
+            <tr [class.disabled]='download.value.deleting' [attr.data-status]="download.value.status">
               <td>
                 <app-item-checkbox [id]="download.key" [master]="queueMasterCheckboxRef" [checkable]="download.value" />
               </td>
@@ -718,9 +746,9 @@
                   }
                 </div>
               </td>
-              <td class="text-nowrap">{{ formatLabel(download.value) }}</td>
-              <td>{{ download.value.speed | speed }}</td>
-              <td>{{ download.value.eta | eta }}</td>
+              <td class="text-nowrap" data-label="Format">{{ formatLabel(download.value) }}</td>
+              <td data-label="Speed">{{ download.value.speed | speed }}</td>
+              <td data-label="ETA">{{ download.value.eta | eta }}</td>
               <td>
                 <div class="d-flex justify-content-end">
                   @if (download.value.status === 'pending' || download.value.status === 'scheduled') {
@@ -753,7 +781,7 @@
       <button type="button" class="btn btn-link text-decoration-none px-0 me-4" disabled #doneDownloadSelected (click)="downloadSelectedFiles()"><fa-icon [icon]="faDownload" />&nbsp; Download Selected</button>
     </div>
     <div class="overflow-auto">
-      <table class="table">
+      <table class="table dl-cards dl-done">
         <thead>
           <tr>
             <th scope="col" style="width: 1rem;">
@@ -770,7 +798,7 @@
         </thead>
         <tbody>
           @for (entry of cachedSortedDone; track entry[0]) {
-            <tr [class.disabled]='entry[1].deleting'>
+            <tr [class.disabled]='entry[1].deleting' [attr.data-status]="entry[1].status">
               <td>
                 <app-item-checkbox [id]="entry[0]" [master]="doneMasterCheckboxRef" [checkable]="entry[1]" />
               </td>
@@ -829,21 +857,21 @@
                   </div>
                 }
               </td>
-              <td class="text-nowrap">
+              <td class="text-nowrap" data-label="Type">
                 {{ downloadTypeLabel(entry[1]) }}
               </td>
-              <td class="text-nowrap">
+              <td class="text-nowrap" data-label="Quality">
                 {{ formatQualityLabel(entry[1]) }}
               </td>
-              <td class="text-nowrap">
+              <td class="text-nowrap" data-label="Codec">
                 {{ formatCodecLabel(entry[1]) }}
               </td>
-              <td>
+              <td data-label="Size">
                 @if (entry[1].size) {
                   <span>{{ entry[1].size | fileSize }}</span>
                 }
               </td>
-              <td class="text-nowrap">
+              <td class="text-nowrap" data-label="Downloaded">
                 @if (entry[1].timestamp) {
                   <span>{{ entry[1].timestamp / 1000000 | date:'yyyy-MM-dd HH:mm' }}</span>
                 }
