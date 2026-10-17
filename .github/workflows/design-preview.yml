@@ -17,11 +17,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      - name: Versionsnummer des Designs
+        with:
+          fetch-depth: 0
+      - name: Versionsnummern
+        id: ver
         run: |
-          VER="$(date +'%Y.%m.%d').${{ github.run_number }}"
-          printf "export const DESIGN_VERSION = '%s';\n" "$VER" > ui/src/app/design-version.ts
-          echo "Design-Version: $VER" >> "$GITHUB_STEP_SUMMARY"
+          # Design: Datum + Laufnummer dieses Builds
+          DESIGN="$(date +'%Y.%m.%d').${{ github.run_number }}"
+          printf "export const DESIGN_VERSION = '%s';\n" "$DESIGN" > ui/src/app/design-version.ts
+          # MeTube: Datum des Original-Stands, auf dem das Design aufbaut (wie bei den Original-Releases)
+          BASE="$(git merge-base origin/master HEAD)"
+          METUBE="$(git log -1 --format=%cd --date=format:%Y.%m.%d "$BASE")"
+          echo "metube=$METUBE" >> "$GITHUB_OUTPUT"
+          echo "Design-Version: $DESIGN, MeTube-Stand: $METUBE" >> "$GITHUB_STEP_SUMMARY"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Login to GitHub Container Registry
@@ -40,7 +48,7 @@ jobs:
           platforms: linux/amd64
           push: true
           build-args: |
-            VERSION=design-${{ github.run_number }}
+            VERSION=${{ steps.ver.outputs.metube }}
           tags: |
             ${{ steps.img.outputs.name }}:design
             ${{ steps.img.outputs.name }}:design-${{ github.run_number }}
