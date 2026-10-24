@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import quote
@@ -53,6 +54,10 @@ def _valid_video_add_body(**kwargs):
     return base
 
 
+def _selection(options):
+    return (options.download_type, options.codec, options.format, options.quality)
+
+
 def _json_request(body: dict | None):
     req = MagicMock(spec=web.Request)
     req.json = AsyncMock(return_value=body)
@@ -100,8 +105,8 @@ async def test_add_passes_preset_and_overrides(mock_dqueue, monkeypatch):
     assert resp.status == 200
     call = mock_dqueue.add.await_args
     assert call is not None
-    assert call.args[13] == ["Preset A"]
-    assert call.args[14] == {"writesubtitles": True}
+    assert call.args[1].ytdl_options_presets == ("Preset A",)
+    assert call.args[1].ytdl_options_overrides == {"writesubtitles": True}
 
 
 @pytest.mark.asyncio
@@ -111,7 +116,7 @@ async def test_add_passes_video_password(mock_dqueue):
     assert resp.status == 200
     call = mock_dqueue.add.await_args
     assert call is not None
-    assert call.kwargs["video_password"] == "s3cret pw"
+    assert call.args[1].video_password == "s3cret pw"
 
 
 @pytest.mark.asyncio
@@ -121,7 +126,7 @@ async def test_add_without_video_password_passes_none(mock_dqueue):
     assert resp.status == 200
     call = mock_dqueue.add.await_args
     assert call is not None
-    assert call.kwargs["video_password"] is None
+    assert call.args[1].video_password is None
 
 
 @pytest.mark.asyncio
@@ -149,7 +154,7 @@ async def test_add_legacy_string_preset_normalized(mock_dqueue, monkeypatch):
     resp = await main.add(req)
     assert resp.status == 200
     call = mock_dqueue.add.await_args
-    assert call.args[13] == ["Legacy"]
+    assert call.args[1].ytdl_options_presets == ("Legacy",)
 
 
 @pytest.mark.asyncio
@@ -220,7 +225,7 @@ async def test_add_allows_any_ytdl_options_override_key_when_enabled(mock_dqueue
     assert resp.status == 200
     call = mock_dqueue.add.await_args
     assert call is not None
-    assert call.args[14] == {"exec": "echo hi"}
+    assert call.args[1].ytdl_options_overrides == {"exec": "echo hi"}
 
 
 @pytest.mark.asyncio
@@ -393,7 +398,7 @@ async def test_add_legacy_format_migrated(mock_dqueue):
     assert resp.status == 200
     call = mock_dqueue.add.await_args
     assert call is not None
-    assert call.args[1] == "audio"
+    assert call.args[1].download_type == "audio"
 
 
 @pytest.mark.asyncio
@@ -405,8 +410,8 @@ async def test_add_passes_clip_bounds_to_queue(mock_dqueue):
     assert resp.status == 200
     call = mock_dqueue.add.await_args
     assert call is not None
-    assert call.args[15] == pytest.approx(146.0)
-    assert call.args[16] == pytest.approx(204.0)
+    assert call.args[1].clip_start == pytest.approx(146.0)
+    assert call.args[1].clip_end == pytest.approx(204.0)
 
 
 @pytest.mark.asyncio
@@ -454,8 +459,8 @@ async def test_add_audio_auto_passes_audio_tags(mock_dqueue):
     resp = await main.add(req)
     assert resp.status == 200
     call = mock_dqueue.add.await_args
-    assert call.args[3] == "auto"
-    assert call.kwargs["audio_tags"] == "none"
+    assert call.args[1].format == "auto"
+    assert call.args[1].audio_tags == "none"
 
 
 @pytest.mark.asyncio
@@ -463,7 +468,7 @@ async def test_add_defaults_audio_tags_to_with_cover(mock_dqueue):
     # API clients that predate the field keep today's cover-and-tags behaviour.
     req = _json_request(_valid_video_add_body(download_type="audio", format="mp3"))
     await main.add(req)
-    assert mock_dqueue.add.await_args.kwargs["audio_tags"] == "with_cover"
+    assert mock_dqueue.add.await_args.args[1].audio_tags == "with_cover"
 
 
 @pytest.mark.asyncio
@@ -1090,10 +1095,132 @@ async def test_connect_sends_the_catalog_with_the_configuration(mock_dqueue, mon
 
 
 @pytest.mark.asyncio
+async def test_connect_builds_payload_on_the_event_loop(mock_dqueue, monkeypatch):
+    """The connect handler must run ``dqueue.get()`` and the serializer inline
+    on the event loop, not in a worker thread. A thread would iterate the queue
+    dicts while the loop mutates them (``RuntimeError: dictionary changed size
+    during iteration`` -> the client gets no ``all`` event), and the encoder
+    reads ``DownloadInfo`` objects the progress hooks are updating.
+    ``_save_dict_async`` serializes on the loop for exactly this reason; the
+    connect payload follows that pattern."""
+    emitted = []
+
+    async def fake_emit(event, data=None, to=None):
+        emitted.append((event, data))
+
+    monkeypatch.setattr(main.sio, 'emit', fake_emit)
+    monkeypatch.setattr(main, 'submgr', MagicMock(list_all=MagicMock(return_value=[])))
+    monkeypatch.setattr(main.config, 'CUSTOM_DIRS', False)
+    monkeypatch.setattr(main.config, 'YTDL_OPTIONS_FILE', '')
+
+    loop = asyncio.get_running_loop()
+    offloaded = []
+    original_run_in_executor = loop.run_in_executor
+
+    async def spy_run_in_executor(executor, func, *args):
+        offloaded.append(func)
+        return await original_run_in_executor(executor, func, *args)
+
+    monkeypatch.setattr(loop, 'run_in_executor', spy_run_in_executor)
+
+    await main.connect('sid-1', {})
+
+    # Nothing was dispatched to a worker thread: the payload gather+serialize
+    # ran on the loop (and with CUSTOM_DIRS / YTDL_OPTIONS_FILE off, the
+    # background finish task has no work either).
+    assert offloaded == []
+    # ...and the connect still delivered its catalog to the client.
+    assert 'configuration' in [e for e, _ in emitted]
+
+
+@pytest.mark.asyncio
+async def test_connect_emits_all_first_and_preserves_the_two_tuple_payload(mock_dqueue, monkeypatch):
+    """The UI's ``'all'`` handler indexes ``data[0]`` (in-flight) and
+    ``data[1]`` (history); the 2-tuple shape is load-bearing. ``'all'`` also
+    has to lead, so the client's state is populated before any event that
+    depends on it."""
+    emitted = []
+
+    async def fake_emit(event, data=None, to=None):
+        emitted.append((event, data))
+
+    # One in-flight and one finished entry so the 2-tuple is observable.
+    mock_dqueue.get = MagicMock(return_value=([{"id": "q"}], [{"id": "d"}]))
+    monkeypatch.setattr(main.sio, 'emit', fake_emit)
+    monkeypatch.setattr(main, 'submgr', MagicMock(list_all=MagicMock(return_value=[])))
+    monkeypatch.setattr(main.config, 'CUSTOM_DIRS', False)
+    monkeypatch.setattr(main.config, 'YTDL_OPTIONS_FILE', '')
+
+    await main.connect('sid-1', {})
+
+    events = [e for e, _ in emitted]
+    assert events[0] == 'all'
+    all_payload = json.loads(dict(emitted)['all'])
+    # [[in-flight], [history]] -- exactly the historical shape.
+    assert list(all_payload) == [[{"id": "q"}], [{"id": "d"}]]
+
+
+@pytest.mark.asyncio
+async def test_connect_dispatches_slow_finish_events_off_the_ack_path(mock_dqueue, monkeypatch):
+    """The socket.io connect ACK is sent only when the ``connect`` handler
+    returns, so the slow ``custom_dirs`` / ``ytdl_options_changed`` emits must
+    not be awaited inline -- on a large library ``get_custom_dirs()`` globs the
+    whole download tree for over 100s, which would delay the handshake past the
+    engine.io ping window. They are dispatched as a background task instead; the
+    handler returns right after the four fast events and the dir list arrives a
+    moment later."""
+    emitted = []
+
+    async def fake_emit(event, data=None, to=None):
+        emitted.append((event, data))
+
+    slow = {}
+
+    # A directory walk (invoked via run_in_executor, so sync), so we can assert
+    # it ran off the handler and that its event is emitted once the background
+    # task finishes.
+    def slow_get_custom_dirs():
+        slow['called'] = True
+        return {"download_dir": ["", "a"], "audio_download_dir": ["", "a"]}
+
+    created = []
+
+    def spy_create_task(coro, *, name=None):
+        created.append(name)
+        return asyncio.ensure_future(coro)
+
+    monkeypatch.setattr(main.sio, 'emit', fake_emit)
+    monkeypatch.setattr(main.bg_tasks, 'create_task', spy_create_task)
+    monkeypatch.setattr(main, 'submgr', MagicMock(list_all=MagicMock(return_value=[])))
+    monkeypatch.setattr(main.config, 'CUSTOM_DIRS', True)
+    monkeypatch.setattr(main.config, 'YTDL_OPTIONS_FILE', '')
+    monkeypatch.setattr(main, 'get_custom_dirs', slow_get_custom_dirs)
+
+    await main.connect('sid-1', {})
+
+    # The handler returned without waiting on the slow walk (ACK went out first).
+    assert 'called' not in slow
+    # ...and it was dispatched as a background task.
+    assert any(n and n.startswith('connect_finish_') for n in created)
+    # Fast events are already out; the slow one is not (yet).
+    fast = [e for e, _ in emitted]
+    assert 'configuration' in fast and 'custom_dirs' not in fast
+
+    # Let the background task run (executor round-trip needs a real time slice):
+    # the dir list arrives after the handshake.
+    await asyncio.sleep(0.05)
+    slow_events = [e for e, _ in emitted]
+    assert slow.get('called') is True
+    assert 'custom_dirs' in slow_events
+    # ...and only after the four fast events.
+    assert slow_events.index('custom_dirs') > slow_events.index('configuration')
+
+
+@pytest.mark.asyncio
 async def test_add_passes_an_ios_height_through(mock_dqueue):
     resp = await main.add(_json_request(_valid_video_add_body(format="ios", quality="720")))
     assert resp.status == 200
-    assert mock_dqueue.add.await_args.args[1:5] == ("video", "auto", "ios", "720")
+    assert _selection(mock_dqueue.add.await_args.args[1]) == ("video", "auto", "ios", "720")
 
 
 @pytest.mark.asyncio
@@ -1102,7 +1229,7 @@ async def test_add_ignores_a_codec_on_a_type_that_has_none(mock_dqueue):
         _valid_video_add_body(download_type="audio", codec="bogus", format="mp3", quality="320")
     ))
     assert resp.status == 200
-    assert mock_dqueue.add.await_args.args[1:5] == ("audio", "auto", "mp3", "320")
+    assert _selection(mock_dqueue.add.await_args.args[1]) == ("audio", "auto", "mp3", "320")
 
 
 @pytest.mark.asyncio
@@ -1117,4 +1244,39 @@ async def test_add_with_only_a_url_downloads_the_best_video(mock_dqueue):
     # Documented for integration authors on the wiki's "Sending links" page.
     resp = await main.add(_json_request({"url": "https://example.com/v"}))
     assert resp.status == 200
-    assert mock_dqueue.add.await_args.args[1:5] == ("video", "auto", "any", "best")
+    assert _selection(mock_dqueue.add.await_args.args[1]) == ("video", "auto", "any", "best")
+
+
+@pytest.mark.asyncio
+async def test_subscribe_reads_string_booleans(mock_dqueue, monkeypatch):
+    # add_subscription stores bool(value), so a string 'false' used to enable
+    # chapter splitting and auto start on every future download.
+    monkeypatch.setattr(main.submgr, "add_subscription", AsyncMock(return_value={"status": "ok"}))
+    req = _json_request({
+        **_valid_video_add_body(), "check_interval_minutes": 60,
+        "split_by_chapters": "false", "auto_start": "false", "sponsorblock": "true",
+    })
+    await main.subscribe(req)
+    kwargs = main.submgr.add_subscription.await_args.kwargs
+    assert kwargs["split_by_chapters"] is False
+    assert kwargs["auto_start"] is False
+    assert kwargs["sponsorblock"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field,value", [
+    ("custom_name_prefix", 7),
+    ("folder", ["a"]),
+    ("auto_start", "maybe"),
+    ("playlist_item_limit", -1),
+])
+async def test_add_refuses_malformed_fields_with_400(mock_dqueue, field, value):
+    with pytest.raises(web.HTTPBadRequest):
+        await main.add(_json_request(_valid_video_add_body(**{field: value})))
+    mock_dqueue.add.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_browse_refuses_negative_item_limit(mock_dqueue):
+    with pytest.raises(web.HTTPBadRequest):
+        await main.browse(_json_request({"url": "https://example.com/list", "playlist_item_limit": -3}))
