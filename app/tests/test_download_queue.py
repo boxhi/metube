@@ -150,6 +150,28 @@ async def test_add_unsupported_url_recorded_as_failed_entry(dq_env):
 
 
 @pytest.mark.asyncio
+async def test_add_extractor_crash_recorded_as_failed_entry(dq_env):
+    """yt-dlp lets an extractor bug escape as-is, not as a YoutubeDLError
+    (#1108: GloboArticle's AttributeError on an m3u8 URL). It must fail the
+    add like any extraction error, not reach aiohttp as a bare 500."""
+    notifier = AsyncMock()
+    url = "https://example.com/manifest.m3u8"
+
+    def crash(self, url, *_args, **_kwargs):
+        raise AttributeError("'NoneType' object has no attribute 'strip'")
+
+    dq = DownloadQueue(dq_env, notifier)
+    with patch.object(DownloadQueue, "_DownloadQueue__extract_info", crash):
+        result = await dq.add(url, DownloadOptions())
+    assert result["status"] == "error"
+    assert "AttributeError" in result["msg"]
+    assert "has no attribute 'strip'" in result["msg"]
+    failed = dq.done.get(url)
+    assert failed.info.status == "error"
+    assert failed.info.error == result["msg"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("url", ["127.0.0.1:18443/probe", "//127.0.0.1:18443/probe"])
 async def test_add_scheme_less_internal_url_refused_before_any_connection(dq_env, url):
     """validate_url passes inputs without '://' (bare IDs, ytsearch:), and
@@ -922,6 +944,55 @@ async def test_playlist_with_owner_uploader_id_is_still_a_playlist(dq_env):
     )
 
     assert template.startswith("My Playlist/")
+
+
+@pytest.mark.asyncio
+async def test_channel_without_a_tab_queues_each_tabs_videos(dq_env):
+    """A bare /@handle on a channel with several tabs is a playlist whose
+    entries are the tabs, each a playlist itself. Each tab used to be queued
+    as one 'video' row that downloaded the whole tab, and retrying it moved
+    its files to a differently named folder (#1111)."""
+    dq_env.OUTPUT_TEMPLATE_CHANNEL = "%(channel)s/%(title)s.%(ext)s"
+    dq_env.OUTPUT_TEMPLATE_PLAYLIST = "%(playlist_title)s/%(title)s.%(ext)s"
+
+    def tab(name, video_ids):
+        return {
+            "_type": "playlist",
+            "id": "UCabcd123",
+            "channel_id": "UCabcd123",
+            "uploader_id": "@odin",
+            "channel": "Odin",
+            "title": f"Odin - {name}",
+            "webpage_url": f"https://www.youtube.com/@odin/{name.lower()}",
+            "entries": [
+                {"_type": "url", "id": vid, "title": vid, "url": f"https://example.com/watch?v={vid}"}
+                for vid in video_ids
+            ],
+        }
+
+    def fake_extract(self, _url, *_args, **_kwargs):
+        return {
+            "_type": "playlist",
+            "id": "@odin",
+            "channel_id": "UCabcd123",
+            "uploader_id": "@odin",
+            "channel": "Odin",
+            "title": "Odin",
+            "entries": [tab("Videos", ["v1", "v2"]), tab("Shorts", ["s1"])],
+        }
+
+    dq = DownloadQueue(dq_env, AsyncMock())
+    with patch.object(DownloadQueue, "_DownloadQueue__extract_info", fake_extract):
+        result = await dq.add("https://www.youtube.com/@odin", DownloadOptions(auto_start=False))
+
+    assert result["status"] == "ok"
+    queued = sorted(url for url, _ in dq.pending.items())
+    assert queued == [f"https://example.com/watch?v={vid}" for vid in ("s1", "v1", "v2")]
+    for _, download in dq.pending.items():
+        # Every tab files into the channel's folder, the same one a retry of
+        # any single video reproduces from its stored channel context.
+        assert download.output_template.startswith("Odin/")
+        assert download.info.entry["channel"] == "Odin"
 
 
 @pytest.mark.asyncio

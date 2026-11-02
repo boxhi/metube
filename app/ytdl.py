@@ -27,7 +27,7 @@ import format_catalog
 from music_metadata import MusicMetadataPreProcessor
 from datetime import datetime
 from state_store import AtomicJsonStore, from_json_compatible, read_legacy_shelf, to_json_compatible
-from subscriptions import _entry_id, annotate_feed_entry, is_channel_extraction
+from subscriptions import _entry_id, annotate_feed_entry, is_channel_extraction, unexpected_ytdl_error
 from url_guard import validate_url, install_socket_guard, socket_guard_scope, download_proxies
 from urllib.parse import urlsplit
 
@@ -893,7 +893,14 @@ class Download:
                     requested_subtitles = d.get('info_dict', {}).get('requested_subtitles', {}) or {}
                     for subtitle in requested_subtitles.values():
                         if isinstance(subtitle, dict) and subtitle.get('filepath'):
-                            self.status_queue.put({'subtitle_file': subtitle['filepath']})
+                            # filepath is where yt-dlp wrote the file, in the
+                            # temp location; MoveFiles has just moved it into
+                            # __finaldir under the same name, as for the media.
+                            subtitle_path = subtitle['filepath']
+                            if '__finaldir' in d['info_dict']:
+                                subtitle_path = os.path.join(
+                                    d['info_dict']['__finaldir'], os.path.basename(subtitle_path))
+                            self.status_queue.put({'subtitle_file': subtitle_path})
 
             # Capture all chapter files when SplitChapters finishes
             elif d.get('postprocessor') == 'SplitChapters' and d.get('status') == 'finished':
@@ -1043,6 +1050,9 @@ class Download:
         except yt_dlp.utils.YoutubeDLError as exc:
             log.error(f"Download error for {self.info.title}: {str(exc)}")
             self.status_queue.put({'status': 'error', 'msg': ytdl_logger.failure_message(str(exc))})
+        except Exception as exc:
+            log.exception(f"yt-dlp crashed downloading {self.info.title}")
+            self.status_queue.put({'status': 'error', 'msg': unexpected_ytdl_error(exc)})
         except KeyboardInterrupt:
             # cancel()'s SIGINT: the download is being removed, so there is no
             # status to report; just exit without a traceback.
@@ -1221,8 +1231,10 @@ class Download:
                 if not existing:
                     self.info.subtitle_files.append({'filename': rel_path, 'size': file_size})
                 # Prefer first subtitle file as the primary result link in captions mode.
+                # It replaces any filename the progress hook set: that one is the
+                # path before MoveFiles, in the temp location when that differs.
                 if getattr(self.info, 'download_type', '') == 'captions' and (
-                    not getattr(self.info, 'filename', None) or
+                    self.info.subtitle_files[0]['filename'] == rel_path or
                     str(getattr(self.info, 'format', '')).lower() == 'txt'
                 ):
                     self.info.filename = rel_path
@@ -1911,6 +1923,14 @@ class DownloadQueue:
                 if _add_gen is not None and self._add_generation != _add_gen:
                     log.info(f'Playlist add canceled after processing {len(already)} entries')
                     return {'status': 'ok', 'msg': f'Canceled - added {len(already)} items before cancel'}
+                if etr.get('_type') == 'playlist' and etr.get('entries') is not None:
+                    # A playlist of playlists: a channel URL without a tab comes
+                    # back as one per tab (Videos, Live, Shorts). Queued as a
+                    # video, each tab became a single row that downloaded the
+                    # whole tab, and a retry of it named the folder differently
+                    # (#1111). Add its videos exactly as the tab's own URL would.
+                    results.append(await self.__add_entry(etr, options, already, _add_gen))
+                    continue
                 if "id" not in etr:
                     etr["id"] = _entry_id(etr)
                 etr["_type"] = "video"
@@ -2018,6 +2038,11 @@ class DownloadQueue:
             )
         except yt_dlp.utils.YoutubeDLError as exc:
             msg = str(exc)
+            await self.__record_add_failure(url, msg, options, retry_entry)
+            return {'status': 'error', 'msg': msg}
+        except Exception as exc:
+            log.exception('yt-dlp crashed extracting %s', url)
+            msg = unexpected_ytdl_error(exc)
             await self.__record_add_failure(url, msg, options, retry_entry)
             return {'status': 'error', 'msg': msg}
         if entry is None:
